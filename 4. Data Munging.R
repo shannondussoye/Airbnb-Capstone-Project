@@ -90,16 +90,16 @@ data <- data %>%
     lid
   ) %>%
   summarise(
-    spoi1km = max(poi1km),
-    spoi5km = max(poi5km),
-    spoi10km = max(poi10km)
+    spoi1km = sum(poi1km),
+    spoi5km = sum(poi5km),
+    spoi10km = sum(poi10km)
   )
 
 data$price <- gsub("\\$", "", data$price)
 data$price <- as.numeric(data$price)
 
 #adding weights to spoi distance
-data$spoi1km <- data$spoi1km*10
+data$spoi1km <- data$spoi1km*20
 data$spoi5km <- data$spoi5km*4
 
 
@@ -138,7 +138,9 @@ data <- data %>% rename(listing_id=id)
 # data$median_price <- round(data$median_price,-2)
 # data$mean_price <-  round(data$mean_price,-2)
 
-rm(data_train,data_city,cal_renting)
+rm(data_train,data_city,
+   #cal_renting
+   )
 
 # data$mean_price <- round(data$mean_price,-3)
 # data$median_price <- round(data$median_price,-3)
@@ -241,12 +243,13 @@ data <- data %>% select(-c(listing_id,listing_url,latitude,longitude,accommodate
 # Class :character   Class :character   Class :character   Class :character  
 # Mode  :character   Mode  :character   Mode  :character   Mode  :character  
 data <- data %>% filter(!is.na(price))
-write.csv(data,"pre-completion-dataset.csv")
+#write.csv(data,"pre-completion-dataset.csv")
 
 #complete datasets
 dataMod <- mice(data, method="rf")  # perform mice imputation, based on random forests.
 completedata <- complete(dataMod)  # generate the completed data.
 anyNA(completedata)
+setwd("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/")
 write.csv(completedata,"completedata.csv")
 
 #There are 140 different types of response. ~too many?
