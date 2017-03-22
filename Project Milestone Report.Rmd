@@ -1,0 +1,131 @@
+---
+title: Project Milestone Report -  Predicting Monthly Income Range of Airbnb listing
+  in NSW
+author: "Shannon Dussoye"
+date: "26 February 2017"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##Introduction
+*Airbnb is an online marketplace and hospitality service, enabling people to list or rent short-term lodging including vacation rentals, apartment rentals, homestays, hostel beds, or hotel rooms.*
+
+Airbnb has gained a lot of momentum over the past two years and is the most popular vacation rental stay due to its affordability.
+Many people have started listing their places to be rented on airbnb's website. However, there is no tool available to new owners
+in order to get some insights on what will their monthly income. This model uses the scraped airbnb data - listings which contains all listings information; calendar - advanced bookings and all Points of Interests in NSW to calculate an average monthly income.
+
+##Datasets
+This project will use multiple datasets and create calculated metrics for each listing. The following dataset are using in this project:
+
+1. listings
+2. Calendars:
+    + calendar_May2015
+    + calendar_oct2015
+    + calendar_dec2015
+    + calendar_jan2016
+    + calendar_dec2016
+3. Points of Interests 
+
+### Listings dataset
+
+The Listings contains all the information of a place  being rented i.e. price, location, host details and etc. There are 95 attributes in the dataset. However, only 30% of the attributes will be used for this project. The dataset is displayed in the table below:
+
+```{r datasets,echo=FALSE,include=FALSE}
+library(dplyr)
+library(data.table)
+library('knitr')
+library(DT)
+doclistings <- fread("/home/shannon/R/Projects/Springboard Project Files/files/listings.csv") %>% head(n=10)
+```
+
+```{r echo=FALSE}
+DT:::DT2BSClass(c('compact', 'cell-border'))
+#coln = c('Rownum', 'POI Group','POI Type', 'POI Name', 'POI Label', 'POI Label Type','Lon','Lat')
+head(doclistings) %>% datatable(rownames=FALSE, class = 'cell-border stripe',options = list(
+  pageLength=1, scrollX='400px'))
+```
+
+
+After removing meaningless attributes, e.g. scrape_id, space and etc. The dataset set looks as depicted in the table below.
+
+
+```{r pressure, echo=FALSE,include=FALSE}
+doclistings <- doclistings %>% select(-c(scrape_id,last_scraped,name,summary,space,description,experiences_offered,
+                                   neighborhood_overview,notes,transit,access,interaction,house_rules,thumbnail_url,
+                                   medium_url,picture_url,xl_picture_url,host_url,host_name,host_location,host_about,
+                                   host_response_time,host_response_rate,host_acceptance_rate,host_is_superhost,host_thumbnail_url,
+                                   host_picture_url,host_neighbourhood,host_listings_count,host_total_listings_count,host_verifications,
+                                   host_has_profile_pic,host_identity_verified,street,neighbourhood,neighbourhood_cleansed,
+                                   neighbourhood_group_cleansed,state,zipcode,market,smart_location,country_code,country,
+                                   is_location_exact,amenities,square_feet,weekly_price,monthly_price,maximum_nights,
+                                   calendar_updated,has_availability,availability_30,availability_60,availability_90,
+                                   availability_365,calendar_last_scraped,first_review,last_review,requires_license,license,
+                                   jurisdiction_names,instant_bookable,require_guest_profile_picture,require_guest_phone_verification,
+                                   calculated_host_listings_count,reviews_per_month))
+
+```
+
+```{r table, echo=FALSE,warning=FALSE}
+DT:::DT2BSClass(c('compact', 'cell-border'))
+head(doclistings) %>% datatable(rownames=FALSE, class = 'cell-border stripe',options = list(
+  pageLength=5, scrollX='400px'))
+
+```
+
+
+###Calendars dataset
+
+The Calendars datasets are scraped at specific date and contains data for a specific range. The calendar dataset contains the dates on which a place is booked but does not contain historical data i.e. weather the place was rented two years ago. Therefore, all the dataset are merged together to calculate an average number of days that a place is rented. The mean and median number of days that a place is rented is calculated. 
+
+
+###Points of Interest Dataset
+
+The Points of Interest dataset contains a filtered list of POI in NSW. There are around 150,000 POI in NSW and to keep the project simple, only the following POI categories were considered:
+
+* Zoo
+* City
+* Lighthouse
+* Observatory
+* Transport Interchange
+* Art Gallery
+* Tourist Attraction
+* Museum
+* Waterfall
+* Historic Site
+* TownShopping Centre
+* Railway Station
+* Beach
+
+##Important Information in Datasets
+
+All the datasets that are used contains relevant attributes that will be used to create the model. For example, the listings dataset contains the price, geolocation and listing details; the calendar dataset contains the pre-booking information and helps to calculate the mean/median number of days a place was rented. The POI dataset contains geolocation, categories and name of the POIs.
+
+
+##Limitations
+
+One of the main limitations for this project is that historical bookings is not available. Historical booking information would have helped to calculate an accurate average number of days a place was rented. Furthermore, the calendar listings are not complete i.e. we do not have a full quarter or year of data to work with.
+
+
+##Data Cleaning/Wrangling
+
+The Airbnbs' datasets used were already cleaned and therefore did not need any more cleansing. However, there is a lot of wrangling required in order to have meaningful attributes, for example:
+
+* Merging all calendar dataset to summarise booking information
+* Calculating the distance between all listings and POIs and filtering to use POI within 10 km radius of listings
+* Filtering the dataset to use the closest city and trains stations if there are multiple
+
+##Preliminary Explorations
+
+The boxplot below shows the summary - median, median, quartiles and outliers of number of days listings are rented in NSW. We can see from the plot that the mean number of days for a place to be rented in NSW is 30 days.
+
+![Caption for the picture](/home/shannon/R/Projects/SpringboardProject/Rplot.png)
+
+
+##Approach
+
+Initially, the approach was to predict the probability that a place will be rented based on POI and calculated reviews score. However, we have slightly change the approach to predict an average income range per month for a listing and to use the existing airbnb reviews instead of scoring reviews from the reviews dataset. The mathematical approach to the problem is to an Ensemble Modelling technique consisting of Logistic Regression, Support Vector Machines and Decision Trees. A voting mechanism will be used to select the most accurate response.
