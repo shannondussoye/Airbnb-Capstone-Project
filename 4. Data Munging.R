@@ -140,7 +140,7 @@ data <- data %>% rename(listing_id=id)
 
 rm(data_train,data_city,
    #cal_renting
-   )
+)
 
 # data$mean_price <- round(data$mean_price,-3)
 # data$median_price <- round(data$median_price,-3)
@@ -201,13 +201,13 @@ data$shared_room <- gsub("Shared room",1,data$shared_room)
 
 #too many property types, filtered based on %share
 property_vector <- data %>% 
-                    group_by(property_type) %>% 
-                      tally() %>% 
-                        arrange(-n) %>% 
-                          mutate(per=(n/sum(n)*100)) %>% 
-                            filter(per>2) %>% 
-                              select(property_type) %>% 
-                                as.vector()
+  group_by(property_type) %>% 
+  tally() %>% 
+  arrange(-n) %>% 
+  mutate(per=(n/sum(n)*100)) %>% 
+  filter(per>2) %>% 
+  select(property_type) %>% 
+  as.vector()
 
 data <- filter(data,property_type=="Apartment"|property_type=="House"|property_type=="Townhouse")
 data <- spread(data,property_type,property_type)
@@ -251,23 +251,3 @@ completedata <- complete(dataMod)  # generate the completed data.
 anyNA(completedata)
 setwd("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/")
 write.csv(completedata,"completedata.csv")
-
-#There are 140 different types of response. ~too many?
-#possible solutions: clustering or create larger buckets
-
-# library(stringr)
-# band[,c(3,4)] <- str_split_fixed(band$response,"-",2)
-# band$V3 <- band$V3 %>% as.numeric()
-# band$V4 <- band$V4 %>% as.numeric()
-# 
-# #group greater than min (25k) together, max is 30k
-# band$newband <- NA
-# for(i in 1:nrow(band))
-# {
-#   if (band$V3[i] >= 25000)
-#     band$newband[i] <- "25000 - 30000"
-#   
-# }
-
-
-
