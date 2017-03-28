@@ -104,3 +104,16 @@ ggplot(data = all.predictions,aes(x = actual, y = predictions)) +
   facet_wrap(~ model,ncol = 2) + 
   #coord_cartesian(xlim = c(0,1000),ylim = c(0,1000)) +
   ggtitle("Predicted vs. Actual, by model")
+
+
+#SVM is the best model which produces the lowest RMSE
+#Therefore, SVM will be the goto model during the ensemble modelling
+test$predictedvalue <- 0
+for(i in 1:nrow(test))
+if(lm_out$.[i] == rf_out$.[i]) {
+  test$predictedvalue[i] <-  lm_out$.[i]
+  } else if(lm_out$.[i] == svm_out$.[i]) {
+    test$predictedvalue[i] <-  lm_out$.[i]
+  }else if (rf_out$.[i] == svm_out$.[i]) {
+    test$predictedvalue[i] <-  rf_out$.[i]
+  } else test$predictedvalue[i] <-  svm_out$.[i]
