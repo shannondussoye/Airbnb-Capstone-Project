@@ -19,6 +19,22 @@ data_train <- data_train %>%
 data_train <- data_train %>% filter(distrank == 1, dist_km <= 1.0)
 data_train <- mutate(data_train, transport1km = 1)
 
+##beach
+data_beach <- data %>% filter(poitype == "Beach")
+data <- data %>% filter(poitype != "Beach")
+
+#rank distance to beach
+data_beach <- data_beach %>%
+  group_by(id) %>%
+  mutate(distrank = rank(dist_km, ties.method = "first"))
+
+#get closest beach
+data_beach <- data_beach %>% filter(distrank == 1)
+
+#add distance field
+setDT(data_beach)
+data_beach <- data_beach[dist_km <= 1, beach1km := 1]
+data_beach <- data_beach[dist_km > 1 & dist_km <= 5, beach5km := 1]
 
 ##doing same thing with City, a place might be close to multiple city, surrounded by city is an adv
 #separate train stations, order train station by distance, use first one
@@ -119,81 +135,25 @@ for(i in 1:nrow(data))
 }
 data <- data %>% select(-train_dist)
 
-
+##leftjoin beach
+data_beach <- data_beach %>% select(id,beach1km,beach5km)
+data <- left_join(data,data_beach,by="id")
+data <- data %>% 
+  select(-c(security_deposit,cleaning_fee,guests_included,extra_people,minimum_nights,number_of_reviews,cancellation_policy))
 
 ####left join city with data
 data_city <- data_city %>% select(id,city1km,city5km,city10km)
 data <- left_join(data,data_city,by="id")
-data <- data %>% 
-  select(-c(security_deposit,cleaning_fee,guests_included,extra_people,minimum_nights,number_of_reviews,cancellation_policy))
 data <- data %>% rename(listing_id=id)
+rm(data_train,data_city,data_beach)
 
-
-#read renting - price summarised file
-# cal_renting <- read.csv("/home/shannon/R/Projects/SpringboardProject/Output Files/Calendar Summarised Income.csv")
-# data <- left_join(data,cal_renting,by="listing_id")
-# data <- data %>% select(-c(Max,Min,Std))
-# data <- data %>% mutate(mean_price=Mean*price,median_price=Median*price)
-# data <- data %>% filter(!is.na(Mean))
-# data$median_price <- round(data$median_price,-2)
-# data$mean_price <-  round(data$mean_price,-2)
-
-rm(data_train,data_city,
-   #cal_renting
-)
-
-# data$mean_price <- round(data$mean_price,-3)
-# data$median_price <- round(data$median_price,-3)
-# data$min <- NA
-# data$max <- NA
-# data <- data %>% filter(!is.na(mean_price),!is.na(median_price))
-# for(i in 1:nrow(data)){
-#   if(data$mean_price[i] > data$median_price[i]) 
-#   {
-#      data$max[i] <-  data$mean_price[i]
-#      data$min[i]  <-  data$median_price[i]
-#   }
-#   else if(data$mean_price[i] < data$median_price[i]){
-#     
-#     data$min[i] <- data$mean_price[i]
-#     data$max[i] <- data$median_price[i]
-#   }
-#   else{
-#     data$min[i] <- data$mean_price[i]
-#     data$max[i] <- data$median_price[i]
-#   }
-# 
-# }
-# 
-# paste(data$min,data$max) %>% unique()
-# 
-# for (i in 1:nrow(data)) {
-# if (data$min[i] == data$max[i]) {
-#   data$min[i] <- data$max[i] - 1000
-#   }
-# }
-# 
-# data$response <- paste(data$min,'-',data$max)
-# data$response %>% unique()
-# 
-# 
-# #some cases where people made no money at all. we'll remove these
-# data <- filter(data,max > 0)
-# 
-# #create bins for response
-# band <- data$response %>% unique() %>% as.data.frame()
-# band <- rename(band,response = .)
-# band$response <- as.character(band$response)
-# band$response_band <- rownames(band) %>% as.numeric()
-# 
-# #left join response-band
-# data <- left_join(data,band,by = "response")
-# data <- select(data,-c(X,Mean,Median,city,mean_price,median_price,min,max,response))
 data[c("city1km","city5km","city10km")][is.na(data[c("city1km","city5km","city10km")])] <-  0
+data[c("beach1km","beach5km")][is.na(data[c("beach1km","beach5km")])] <-  0
+
 
 #Spread
 data <- spread(data,room_type,room_type)
-colnames(data)[22:24] <- c("home_apt","private_room","shared_room")
+colnames(data)[24:26] <- c("home_apt","private_room","shared_room")
 data[c("home_apt","private_room","shared_room")][is.na(data[c("home_apt","private_room","shared_room")])] <-  0
 data$home_apt <- gsub("Entire home\\/apt",1,data$home_apt)
 data$private_room <- gsub("Private room",1,data$private_room)
@@ -216,34 +176,34 @@ data$Apartment <- gsub("Apartment",1,data$Apartment)
 data$House <- gsub("House",1,data$House)
 data$Townhouse <- gsub("Townhouse",1,data$Townhouse)
 
-databk <- data
 data <- data %>% select(-c(listing_id,listing_url,latitude,longitude,accommodates,lid,bed_type))
 
-# ### First 4 columns has NAs - need to treat NAs
 # > summary(data)
-# bathrooms        bedrooms           beds        review_scores_rating    spoi1km          spoi5km         spoi10km     
-# Min.   :0.000   Min.   : 0.000   Min.   : 1.000   Min.   : 20.00       Min.   : 0.000   Min.   :0.000   Min.   :0.0000  
-# 1st Qu.:1.000   1st Qu.: 1.000   1st Qu.: 1.000   1st Qu.: 90.00       1st Qu.: 0.000   1st Qu.:4.000   1st Qu.:1.0000  
-# Median :1.000   Median : 1.000   Median : 1.000   Median : 96.00       Median :10.000   Median :4.000   Median :1.0000  
-# Mean   :1.319   Mean   : 1.582   Mean   : 1.936   Mean   : 92.92       Mean   : 7.125   Mean   :3.992   Mean   :0.9999  
-# 3rd Qu.:1.500   3rd Qu.: 2.000   3rd Qu.: 2.000   3rd Qu.:100.00       3rd Qu.:10.000   3rd Qu.:4.000   3rd Qu.:1.0000  
-# Max.   :7.000   Max.   :10.000   Max.   :16.000   Max.   :100.00       Max.   :10.000   Max.   :4.000   Max.   :1.0000  
-# NA's   :21      NA's   :9        NA's   :33       NA's   :8336                                                          
-#
-# dist_train        city1km           city5km          city10km      response_band       home_apt         private_room      
-# Min.   :0.0000   Min.   :0.00000   Min.   :0.0000   Min.   :0.0000   Min.   :  1.000   Length:21023       Length:21023      
-# 1st Qu.:0.0000   1st Qu.:0.00000   1st Qu.:0.0000   1st Qu.:0.0000   1st Qu.:  2.000   Class :character   Class :character  
-# Median :0.0000   Median :0.00000   Median :0.0000   Median :0.0000   Median :  6.000   Mode  :character   Mode  :character  
-# Mean   :0.4308   Mean   :0.03962   Mean   :0.3754   Mean   :0.4059   Mean   :  9.833                                        
-# 3rd Qu.:1.0000   3rd Qu.:0.00000   3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:  9.000                                        
-# Max.   :1.0000   Max.   :1.00000   Max.   :1.0000   Max.   :1.0000   Max.   :140.000   
-# 
-# shared_room         Apartment            House            Townhouse        
-# Length:21023       Length:21023       Length:21023       Length:21023      
-# Class :character   Class :character   Class :character   Class :character  
-# Mode  :character   Mode  :character   Mode  :character   Mode  :character  
+# city             bathrooms        bedrooms           beds            price       review_scores_rating    spoi1km      
+# Length:22583       Min.   :0.000   Min.   : 0.000   Min.   : 1.000   Min.   : 13.0   Min.   : 20.00       Min.   :  0.00  
+# Class :character   1st Qu.:1.000   1st Qu.: 1.000   1st Qu.: 1.000   1st Qu.: 80.0   1st Qu.: 90.00       1st Qu.:  0.00  
+# Mode  :character   Median :1.000   Median : 1.000   Median : 1.000   Median :139.0   Median : 96.00       Median : 20.00  
+# Mean   :1.351   Mean   : 1.605   Mean   : 1.969   Mean   :188.4   Mean   : 92.88       Mean   : 35.22  
+# 3rd Qu.:1.500   3rd Qu.: 2.000   3rd Qu.: 2.000   3rd Qu.:231.0   3rd Qu.:100.00       3rd Qu.: 40.00  
+# Max.   :8.000   Max.   :10.000   Max.   :16.000   Max.   :999.0   Max.   :100.00       Max.   :480.00  
+# NA's   :37      NA's   :9        NA's   :42       NA's   :404     NA's   :9217                         
+#     spoi5km         spoi10km        dist_train        beach1km         beach5km         city1km           city5km      
+#  Min.   :  0.0   Min.   :  0.00   Min.   :0.0000   Min.   :0.0000   Min.   :0.0000   Min.   :0.00000   Min.   :0.0000  
+#  1st Qu.: 36.0   1st Qu.: 51.00   1st Qu.:0.0000   1st Qu.:0.0000   1st Qu.:0.0000   1st Qu.:0.00000   1st Qu.:0.0000  
+#  Median : 84.0   Median : 62.00   Median :0.0000   Median :0.0000   Median :0.0000   Median :0.00000   Median :0.0000  
+#  Mean   :109.2   Mean   : 58.13   Mean   :0.4232   Mean   :0.3073   Mean   :0.4508   Mean   :0.03804   Mean   :0.3647  
+#  3rd Qu.:196.0   3rd Qu.: 70.00   3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:0.00000   3rd Qu.:1.0000  
+#  Max.   :284.0   Max.   :122.00   Max.   :1.0000   Max.   :1.0000   Max.   :1.0000   Max.   :1.00000   Max.   :1.0000  
+#                                                                                                                        
+#     city10km        home_apt         private_room       shared_room         Apartment            House            Townhouse        
+#  Min.   :0.0000   Length:22583       Length:22583       Length:22583       Length:22583       Length:22583       Length:22583      
+#  1st Qu.:0.0000   Class :character   Class :character   Class :character   Class :character   Class :character   Class :character  
+#  Median :0.0000   Mode  :character   Mode  :character   Mode  :character   Mode  :character   Mode  :character   Mode  :character  
+#  Mean   :0.4096                                                                                                                    
+#  3rd Qu.:1.0000                                                                                                                    
+#  Max.   :1.0000  
 data <- data %>% filter(!is.na(price))
-#write.csv(data,"pre-completion-dataset.csv")
+
 
 #complete datasets
 dataMod <- mice(data, method="rf")  # perform mice imputation, based on random forests.

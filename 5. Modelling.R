@@ -1,16 +1,19 @@
 library(dplyr)
 library(randomForest)
 library(ggplot2)
-data <- read.csv("Output Files/completedata.csv",stringsAsFactors = F) %>% select(-c(city,X,Townhouse,shared_room))
+library(e1071) 
 
+
+data <- read.csv("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/completedata.csv",stringsAsFactors = F)  %>% 
+  select(-c(X,city,Townhouse,shared_room))
 ggplot(data,aes(price))+geom_bar() ##distribution is skewed to the right
 data$price <- round(data$price,-1) #%>% log() #round and apply log function
-ggplot(data,aes(price))+geom_bar()
 data$bathrooms <- as.integer(data$bathrooms)
+ggplot(data,aes(log(price)))+geom_bar()
 
 ##Sample data
 set.seed(123)
-samp <- sample(nrow(data), 0.6 * nrow(data))
+samp <- sample(nrow(data), 0.7 * nrow(data))
 train <- data[samp, ]
 test <- data[-samp, ]
 rm(samp)
@@ -63,9 +66,7 @@ rf_out$. <- exp(rf_out$.) %>% round(-1)
 RMSE.forest <- sqrt(mean((rf_out-test$price)^2))
 MAE.forest <- mean(abs(rf_out$.-test$price))
 
-
 #SVM
-library(e1071) 
 model_svm <- svm(log(price) ~ . , train)
 svm_out <- predict(model_svm,test,interval='prediction') %>% as.data.frame()
 svm_out$. <- exp(svm_out$.) %>% round(-1)
@@ -80,7 +81,7 @@ accuracy <- data.frame(Method = c("Baseline","Linear Regression","Random forest"
                        MAE    = c(MAE.baseline,MAE.lin.reg,MAE.forest,MAE.svm))
 accuracy$RMSE <- round(accuracy$RMSE,2)
 accuracy$MAE <- round(accuracy$MAE,2) 
-accuracy
+write.csv(accuracy,"/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/accuracy.csv")
 
 
 all.predictions <- data.frame("actual" = test$price,
@@ -125,4 +126,18 @@ test %>% group_by(model) %>% tally()
 RMSE.em <- sqrt(mean((test$predictedvalue-test$price)^2))
 MAE.em <- mean(abs(test$predictedvalue-test$price))
 
+cbind('Ensemble',RMSE.em,MAE.em) %>% as.data.frame() %>% rename(Method=V1,RMSE=RMSE.em,MAE=MAE.em) %>% 
+write.csv("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/ensemble_accuracy.csv")
 
+em.accuracy <- read.csv("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/ensemble_accuracy.csv") %>% select(-X)
+all_accuracy <- rbind(accuracy,em.accuracy)
+write.csv(all_accuracy,"/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/all_accuracy.csv")  
+#
+
+#Predicted dataset
+test$predictedvalue <- 0
+test$model <- NA
+for(i in 1:nrow(test)){ 
+  test$predictedvalue[i] <-  rf_out$.[i]
+}
+test <- select(test,-model)

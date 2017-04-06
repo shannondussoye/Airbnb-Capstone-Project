@@ -1,0 +1,210 @@
+---
+title: "Project Report"
+author: "Shannon Dussoye"
+date: "3 April 2017"
+output: html_document
+---
+
+# Predicting Airbnb listing price in New South Wales - Australia
+
+## Introduction
+
+Airbnb is an online marketplace and hospitality service, enabling people to list or rent short-term lodging including vacation rentals, apartment rentals, homestays, hostel beds, or hotel rooms.
+
+Airbnb has gained a lot of momentum over the past two years and is the most popular vacation rental stay due to its affordability. Many people have started listing their places to be rented on airbnb’s website. However, there is no tool available to new owners to estimate the renting price of their property. This model will use different attributes and predict the renting price of the property.
+
+## Datasets
+
+The project will use two main web scraped datasets: 
+
+1. Listings dataset - freely available and downloaded from: http://insideairbnb.com/. 
+2. All Points of Interests in New South Wales State in Australia. The data is generated/created by scraping the NSW Government website.
+
+### Listings dataset
+The listings dataset that is used in this project was compiles on 04/12/2016. The dataset is constructed by scraping multiple sections/pages from Airbnb listing and is made available in a cleaned format. The dataset consists of 95 attributes relating to geolocation, neighborhood, renter, ratings etc. However, only 15 of the attributes will be used in this project. The table below shows a snapshot of the data after removing unwanted fields.
+
+```{r echo=FALSE, include=FALSE}
+suppressWarnings(library(plotly))
+suppressWarnings(library(dplyr))
+suppressWarnings(library(randomForest))
+suppressWarnings(library(ggplot2))
+suppressWarnings(library(e1071))
+suppressWarnings(library(zoo))
+suppressWarnings(library(data.table))
+suppressWarnings(library(geosphere))
+suppressWarnings(library(DT))
+```
+
+
+```{r datasets,echo=FALSE,include=FALSE}
+setwd("/home/shannon/R/Projects/Springboard Project Files/Input Files/Airbnb Files")
+#Read listings and select fields
+listings <- fread("listings.csv",stringsAsFactors = F)
+listings <- listings %>% select(-c(scrape_id,last_scraped,name,summary,space,description,experiences_offered,
+                                   neighborhood_overview,notes,transit,access,interaction,house_rules,thumbnail_url,
+                                   medium_url,picture_url,xl_picture_url,host_url,host_name,host_location,host_about,
+                                   host_response_time,host_response_rate,host_acceptance_rate,host_is_superhost,host_thumbnail_url,
+                                   host_picture_url,host_neighbourhood,host_listings_count,host_total_listings_count,host_verifications,
+                                   host_has_profile_pic,host_identity_verified,street,neighbourhood,neighbourhood_cleansed,
+                                   neighbourhood_group_cleansed,state,zipcode,market,smart_location,country_code,country,
+                                   is_location_exact,amenities,square_feet,weekly_price,monthly_price,maximum_nights,
+                                   calendar_updated,has_availability,availability_30,availability_60,availability_90,
+                                   availability_365,calendar_last_scraped,first_review,last_review,requires_license,license,
+                                   jurisdiction_names,instant_bookable,require_guest_profile_picture,require_guest_phone_verification,
+                                   calculated_host_listings_count,reviews_per_month, host_id,host_since,security_deposit,cleaning_fee,guests_included,extra_people,minimum_nights,number_of_reviews,review_scores_accuracy, review_scores_cleanliness,review_scores_checkin,review_scores_communication,review_scores_location,cancellation_policy))
+
+```
+```{r echo=FALSE}
+DT:::DT2BSClass(c('compact', 'cell-border'))
+#coln = c('Rownum', 'POI Group','POI Type', 'POI Name', 'POI Label', 'POI Label Type','Lon','Lat')
+head(listings) %>% datatable(rownames=FALSE, class = 'cell-border stripe',options = list(
+  pageLength=5, scrollX='400px'))
+```
+
+### Listings dataset
+
+As mentioned in the previous section, the dataset contains important listing features that people look at while finding a place through Aribnb. The selected attributes are as follows:
+```{r echo=FALSE}
+colnames(listings)
+```
+
+### Points of Interests(POI) in NSW dataset
+
+As mentioned previously, the NSW POI is created by scraping the NSW government website. The dataset contains the geolocation as well as the type of POI. A sample of the data is as follows
+```{r echo=FALSE}
+setwd("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/")
+NSW_POI_head <- read.csv("NSW POI.csv") %>% head(n=5)
+DT:::DT2BSClass(c('compact', 'cell-border'))
+NSW_POI_head %>% datatable(rownames=FALSE, class = 'cell-border stripe',options = list(
+  pageLength=5, scrollX='400px'))
+```
+
+##Limitations
+
+One of the most concerning limitations in the dataset is that we have 40% missing values for the the review_score attributes. However, we'll use the mice package which in turns uses a random forest algorithm to complete the dataset. Another limitation of the dataset was that we do not have a price history to analyse whether price change affects bookings.
+
+
+## Data Cleaning / Wrangling
+
+Below are the step under taken to prepare the data for modelling:
+
+1. Remove irrelevant attributes
+2. Filter POI dataset to include specific POI type only e.g. Beach, City, etc.
+3. Calculate distance between each listing and POI
+3. Create features:
+   + Boolean attribute dist_train - denoting whether listing is within 1km to train station
+   + Boolean attributes: city1km, city5km and city10km - denoting whether listing is within 1/5/10 km to city
+   + Boolean attributes: spoi1km, spoi5km, spoi10km - denoting the number or POI within 1/5/10 km of the listing
+   + Boolean attributes: beach1km, beach5km - denoting whether listing is within 1 or 5 km to beach
+4. Create Boolean attributes home_apt, private_room, shared_room - denoting the room type of listing
+5. Create Boolean attributes Apartment", House, Townhouse - denoting the property type
+6. Run complete function from mice package to replace missing values using a random forest model. 
+
+The prep data is as depicted below:
+```{r echo=FALSE}
+DT:::DT2BSClass(c('compact', 'cell-border'))
+setwd("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/")
+data <- read.csv("completedata.csv",stringsAsFactors = F) %>% select(-c(city,X,Townhouse,shared_room))
+data$price <- round(data$price,-1)
+data$bathrooms <- as.integer(data$bathrooms)
+head(data,n=5) %>% datatable(rownames=FALSE, class = 'cell-border stripe',options = list(
+  pageLength=5, scrollX='400px'))
+```
+
+## Preliminary Data Exploration
+
+As the response attribute is the listing price, we'll look at explore the relationships between different attributes and also look at the price distribution. As it can be seen from the histogram below, the price is skewed to the right. 
+```{r echo=FALSE}
+plot_ly(data, x = ~price) %>%
+  add_histogram()
+```
+
+We'll therefore apply a log function to reduce the skewness of the response variable. 
+```{r echo=FALSE}
+plot_ly(data, x = ~log(price)) %>%
+  add_histogram()
+```
+
+## Approach
+
+We'll use an ensemble model consisting of Linear Regression, Random Forest and Support Vector Machine to predict the response attribute. All models will be trained and test on the same dataset. The model with the highest accuracy will be the default model, however, if the other two models are predicting the same price, the predicted value from either model will be used as predicted value. 
+
+## Modelling
+
+Before creating the models, the dataset is partitioned into training and test set 60:40 ratio. The best guess, Root Mean Squared Error and Mean Absolute error of the dataset is calculated as the base line. The code below performs the following operations:
+
+1. Reads the prepared dataset
+2. Removes unused attributes
+3. Rounds price
+4. Converts bathroom attribute to integer
+5. Separates the dataset into training and test set
+6. Calculates the Root Mean Squared Error and the Mean Absolute error and the mean which our model needs to predict more accurately.
+
+```{r}
+data <- read.csv("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/completedata.csv",stringsAsFactors = F)  %>% 
+  select(-c(X,city,Townhouse,shared_room))
+data$price <- round(data$price,-1)
+data$bathrooms <- as.integer(data$bathrooms)
+
+set.seed(123)
+samp <- sample(nrow(data), 0.7 * nrow(data))
+train <- data[samp, ]
+test <- data[-samp, ]
+best.guess <- mean(train$price) 
+RMSE.baseline <- sqrt(mean((best.guess-test$price)^2))
+MAE.baseline <- mean(abs(best.guess-test$price))
+```
+
+The baseline model produces the following values:
+
+Best guess: `r best.guess`
+
+RMSE.baseline: `r RMSE.baseline`
+
+MAE.baseline: `r MAE.baseline` 
+
+
+The Linear Model, Random Forest and Support Vector Machine is created to predict the log of rental price and converted back again to the rental value using the exponential function. The models are trained using the training dataset and the test set is use to validate the model. The RMSE and MAE of each model is calculated. The table below shows the RMSE and MAE of the models.
+
+```{r echo=FALSE}
+accuracy <- read.csv("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/accuracy.csv") %>% 
+  select(-X)
+DT:::DT2BSClass(c('compact', 'cell-border'))
+accuracy %>% datatable(rownames=FALSE, class = 'cell-border stripe',options = list(pageLength=5, scrollX='400px'))
+```
+
+As it can be seen from the table above, Random Forest makes a better prediction as compared to Linear Model and SVM. Therefore, Random Forest will be used as the default model for the ensemble model. The code chunk below shows the ensemble model implementation. Linear Model and SVM predicted values are compared and if they have predicted the same value, the Linear model's predicted value will be used, else the predicted value from the Random Forest Model is used. 
+
+```{r eval=FALSE}
+test$predictedvalue <- 0
+test$model <- NA
+for(i in 1:nrow(test)){ 
+  if(lm_out$.[i] == svm_out$.[i]) {
+    test$predictedvalue[i] <-  lm_out$.[i]
+    test$model[i] <- "LR/SVM"
+  } else {
+    test$predictedvalue[i] <-  rf_out$.[i]
+    test$model[i] <- "RF"
+  }
+}
+```
+
+The RMSE and MAE of the ensemble model is also calculated and the table below shows the updated RMSE and MAE of all models.
+
+```{r echo=FALSE}
+all_accuracy <- read.csv("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/all_accuracy.csv") %>% 
+  select(-X)
+DT:::DT2BSClass(c('compact', 'cell-border'))
+all_accuracy %>% datatable(rownames=FALSE, class = 'cell-border stripe',options = list(pageLength=5, scrollX='400px'))
+```
+
+The RMSE of the ensemble model shows that it produces a higher RMSE than SVM and Random Forest. Therefore the model is changed again to use the predictions made by Random Forest instead of the ensemble model.
+
+```{r eval=FALSE}
+test$predictedvalue <- 0
+test$model <- NA
+for(i in 1:nrow(test)){ 
+    test$predictedvalue[i] <-  rf_out$.[i]
+}
+test <- select(test,-model)
+```
