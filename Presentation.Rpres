@@ -1,0 +1,26 @@
+Springboard Capstone Project - Predicting Airbnb listing price
+========================================================
+author: Shannon Dussoye
+date: 
+autosize: true
+
+First Slide
+========================================================
+
+_Airbnb is an online marketplace and hospitality service, enabling people to lease or rent short-term lodging including vacation rentals, apartment rentals, homestays, hostel beds, or hotel rooms._
+
+![Caption for the picture.](/home/shannon/Pictures/Screenshot from 2017-04-07 23-12-01.png=250x)
+
+Slide With Code
+========================================================
+
+```{r}
+summary(cars)
+```
+
+Slide With Plot
+========================================================
+
+```{r, echo=FALSE}
+plot(cars)
+```

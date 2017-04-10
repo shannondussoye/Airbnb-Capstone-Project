@@ -113,18 +113,24 @@ test$predictedvalue <- 0
 test$model <- NA
 for(i in 1:nrow(test)){ 
   if(lm_out$.[i] == rf_out$.[i]) {
-    test$predictedvalue[i] <-  lm_out$.[i]
-    test$model[i] <- "LR/RF"
-  } else {
-    test$predictedvalue[i] <-  svm_out$.[i]
-    test$model[i] <- "SVM"
+      test$predictedvalue[i] <-  rf_out$.[i]
+      test$model[i] <- "LM/RF"
+    } else if(lm_out$.[i] == svm_out$.[i]) {
+      test$predictedvalue[i] <-  lm_out$.[i]
+      test$model[i] <- "LM/SVM"
+    }else if (rf_out$.[i] == svm_out$.[i]) {
+      test$predictedvalue[i] <-  rf_out$.[i]
+      test$model[i] <- "RF/SVM"
+    } else {
+      test$predictedvalue[i] <-  rf_out$.[i]
+      test$model[i] <- "RF"
+    }
   }
-}
 
 test %>% group_by(model) %>% tally()
 
-RMSE.em <- sqrt(mean((test$predictedvalue-test$price)^2))
-MAE.em <- mean(abs(test$predictedvalue-test$price))
+RMSE.em <- sqrt(mean((test$predictedvalue-test$price)^2)) %>% round(2) %>% format(nsmall = 2) %>% as.numeric()
+MAE.em <- mean(abs(test$predictedvalue-test$price)) %>% round(2) %>% format(nsmall = 2) %>% as.numeric()
 
 cbind('Ensemble',RMSE.em,MAE.em) %>% as.data.frame() %>% rename(Method=V1,RMSE=RMSE.em,MAE=MAE.em) %>% 
 write.csv("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/ensemble_accuracy.csv")

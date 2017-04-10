@@ -55,8 +55,6 @@ listings <- listings %>% select(-c(scrape_id,last_scraped,name,summary,space,des
 
 ```
 ```{r echo=FALSE}
-DT:::DT2BSClass(c('compact', 'cell-border'))
-#coln = c('Rownum', 'POI Group','POI Type', 'POI Name', 'POI Label', 'POI Label Type','Lon','Lat')
 head(listings) %>% datatable(rownames=FALSE, class = 'cell-border stripe',options = list(
   pageLength=5, scrollX='400px'))
 ```
@@ -71,10 +69,9 @@ colnames(listings)
 ### Points of Interests(POI) in NSW dataset
 
 As mentioned previously, the NSW POI is created by scraping the NSW government website. The dataset contains the geolocation as well as the type of POI. A sample of the data is as follows
-```{r echo=FALSE}
+```{r echo=FALSE,warning=FALSE}
 setwd("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/")
 NSW_POI_head <- read.csv("NSW POI.csv") %>% head(n=5)
-DT:::DT2BSClass(c('compact', 'cell-border'))
 NSW_POI_head %>% datatable(rownames=FALSE, class = 'cell-border stripe',options = list(
   pageLength=5, scrollX='400px'))
 ```
@@ -101,8 +98,7 @@ Below are the step under taken to prepare the data for modelling:
 6. Run complete function from mice package to replace missing values using a random forest model. 
 
 The prep data is as depicted below:
-```{r echo=FALSE}
-DT:::DT2BSClass(c('compact', 'cell-border'))
+```{r echo=FALSE,message=FALSE, warning=FALSE}
 setwd("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/")
 data <- read.csv("completedata.csv",stringsAsFactors = F) %>% select(-c(city,X,Townhouse,shared_room))
 data$price <- round(data$price,-1)
@@ -166,10 +162,9 @@ MAE.baseline: `r MAE.baseline`
 
 The Linear Model, Random Forest and Support Vector Machine is created to predict the log of rental price and converted back again to the rental value using the exponential function. The models are trained using the training dataset and the test set is use to validate the model. The RMSE and MAE of each model is calculated. The table below shows the RMSE and MAE of the models.
 
-```{r echo=FALSE}
+```{r echo=FALSE,message=FALSE, warning=FALSE}
 accuracy <- read.csv("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/accuracy.csv") %>% 
   select(-X)
-DT:::DT2BSClass(c('compact', 'cell-border'))
 accuracy %>% datatable(rownames=FALSE, class = 'cell-border stripe',options = list(pageLength=5, scrollX='400px'))
 ```
 
@@ -179,22 +174,27 @@ As it can be seen from the table above, Random Forest makes a better prediction 
 test$predictedvalue <- 0
 test$model <- NA
 for(i in 1:nrow(test)){ 
-  if(lm_out$.[i] == svm_out$.[i]) {
-    test$predictedvalue[i] <-  lm_out$.[i]
-    test$model[i] <- "LR/SVM"
-  } else {
-    test$predictedvalue[i] <-  rf_out$.[i]
-    test$model[i] <- "RF"
+  if(lm_out$.[i] == rf_out$.[i]) {
+      test$predictedvalue[i] <-  rf_out$.[i]
+      test$model[i] <- "LM/RF"
+    } else if(lm_out$.[i] == svm_out$.[i]) {
+      test$predictedvalue[i] <-  lm_out$.[i]
+      test$model[i] <- "LM/SVM"
+    }else if (rf_out$.[i] == svm_out$.[i]) {
+      test$predictedvalue[i] <-  rf_out$.[i]
+      test$model[i] <- "RF/SVM"
+    } else {
+      test$predictedvalue[i] <-  rf_out$.[i]
+      test$model[i] <- "RF"
+    }
   }
-}
 ```
 
 The RMSE and MAE of the ensemble model is also calculated and the table below shows the updated RMSE and MAE of all models.
 
-```{r echo=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 all_accuracy <- read.csv("/home/shannon/R/Projects/Airbnb-Capstone-Project/Output Files/all_accuracy.csv") %>% 
   select(-X)
-DT:::DT2BSClass(c('compact', 'cell-border'))
 all_accuracy %>% datatable(rownames=FALSE, class = 'cell-border stripe',options = list(pageLength=5, scrollX='400px'))
 ```
 
